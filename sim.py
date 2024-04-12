@@ -167,10 +167,26 @@ def run(A: Algorithm, W: list):
 with open("wrkld", "rb") as f:
     W = pickle.load(f)
 
-    print("--- Default Algorithm ---")
+    print("--- Default Algorithm HDD A ---")
     A_default = Algorithm(HDD.A)
     run(A_default, W)
 
-    print("--- Timeout Algorithm ---")
+    print("--- Timeout Algorithm HDD A ---")
     A_timeout = Timeout(HDD.A, 1000)
     run(A_timeout, W)
+
+    print("--- Default Algorithm HDD B ---")
+    B_default = Algorithm(HDD.B)
+    run(B_default, W)
+
+    print("--- Timeout Algorithm HDD B ---")
+    B_timeout = Timeout(HDD.B, 100)
+    run(B_timeout, W)
+
+    print("--- Default Algorithm HDD C ---")
+    C_default = Algorithm(HDD.C)
+    run(C_default, W)
+
+    print("--- Timeout Algorithm HDD C ---")
+    C_timeout = Timeout(HDD.C, 100)
+    run(C_timeout, W)

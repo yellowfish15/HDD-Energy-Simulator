@@ -51,10 +51,10 @@ def gen_long_short(mu, sigma, milliseconds):
     return intervals
 
 
-norm_wkld = gen_normal(20000, 5000, 360000000) # workload created from normal distributions
-exp_wkld = gen_exp(20000, 5000, 20000, 360000000) # workload created from exponential distribution of idle period lengths
-ls_wkld = gen_long_short(20000, 5000, 360000000) # workload created from long/short normal distributions
+norm_wkld = gen_normal(20000, 5000, 36000000) # workload created from normal distributions
+exp_wkld = gen_exp(2000, 5000, 200000, 36000000) # workload created from exponential distribution of idle period lengths
+ls_wkld = gen_long_short(20000, 5000, 36000000) # workload created from long/short normal distributions
 
 # serialize workload file
 with open("wrkld", "wb") as f:
-    pickle.dump(ls_wkld, f)
+    pickle.dump(exp_wkld, f)
