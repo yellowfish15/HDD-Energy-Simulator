@@ -21,9 +21,9 @@ class HDD:
     # convert times from seconds to milliseconds
     self.T_sd = int(T_sd*1000)
     self.T_wu = int(T_wu*1000)
-
     # if interval >= alpha, calling shutdown will conserve less energy than staying in standby
-    self.alpha = (P_sd*T_sd - sleeping_power*P_sd)/(standby_power-sleeping_power)
+    # if P_sd <= standby_power, alpha is simply T_sd
+    self.alpha = (max(0, T_sd*(P_sd - standby_power)/(standby_power-sleeping_power)) + T_sd)*1000
 
 
 # the three HDDs we will simulate

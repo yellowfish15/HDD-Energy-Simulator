@@ -30,12 +30,15 @@ with open("wrkld", "rb") as f:
 
     print("--- Timeout Algorithm HDD A ---")
     run(algo.Timeout(HDD.A, 1000), W)
-
+    
+    print("--- Markov Chain Algorithm HDD A ---")
+    run(algo.MarkovChain(HDD.A, 2), W)
+    
     print("--- EMA Algorithm HDD A ---")
     run(algo.EMA(HDD.A, 5), W)
 
-    print("--- Markov Chain Algorithm HDD A ---")
-    run(algo.MarkovChain(HDD.A, 2), W)
+    print("--- Logistic Regression Algorithm HDD A ---")
+    run(algo.Logreg(HDD.A, W, 10), W)
 
     print("--- L-Shape Algorithm HDD A ---")
     run(algo.L(HDD.A, 10000), W)

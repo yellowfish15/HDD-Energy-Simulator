@@ -1,5 +1,9 @@
 import HDD
+import math
+import numpy as np
+import pandas as pd
 import random
+from sklearn.linear_model import LogisticRegression
 
 # Default Algorithm
 class Algorithm:
@@ -153,36 +157,7 @@ class Timeout(Algorithm):
             return interval*self.device.standby_power
 
 
-# Exponential moving average
-class EMA(Algorithm):
-    # sigma is the number of idle periods to lookback
-    def __init__(self, device: HDD, sigma: int):
-        self.iterations = 0 # number of idle period iterations elapsed
-        self.sigma = sigma
-        self.smoothing = 2/(1+sigma)
-        self.average = 0
-        Algorithm.__init__(self, device)
-
-    # override
-    def run_algo(self, interval):
-        self.iterations += 1
-        if self.iterations < self.sigma:
-            self.average += interval
-            return interval*self.device.standby_power
-        elif self.iterations == self.sigma:
-            self.average += interval
-            self.average /= self.sigma
-            return interval*self.device.standby_power
-        energy = 0
-        if self.average >= self.device.alpha:
-            energy = self.shutdown(interval)
-        else:
-            energy = interval*self.device.standby_power
-            self.average *= 1-self.smoothing
-            self.average += interval*self.smoothing
-        return energy
-
-
+# Markov chain
 class MarkovChain(Algorithm):
     def __init__(self, device, chain_len):
         self.chain_len = chain_len
@@ -201,7 +176,7 @@ class MarkovChain(Algorithm):
                 p0 = 0 if 0 not in self.prs[hash] else self.prs[hash][0] # below threshold
                 if p1+p0 > 0:
                     p = p1/(p1+p0)
-                    if random.random() <= p: # we shutdown
+                    if p > .5: # we shutdown
                         energy = self.shutdown(interval)
                 if flag not in self.prs[hash]:
                     self.prs[hash][flag] = 0
@@ -213,6 +188,145 @@ class MarkovChain(Algorithm):
         # append whether or not the current interval was good to shut down
         self.history.append(flag)
         return energy
+
+
+# Exponential moving average
+class EMA(Algorithm):
+    # sigma is the number of idle periods to lookback
+    def __init__(self, device: HDD, sigma: int):
+        self.iterations = 0 # number of idle period iterations elapsed
+        self.sigma = sigma
+        self.smoothing = 2/(1+sigma)
+        self.average = 0
+        Algorithm.__init__(self, device)
+
+    # override
+    def idle(self, interval):
+        energy, wait, remain = self.clear_backlog(interval) # clear any waiting requests
+        if remain > 0: # backlog should be cleared
+            # turn to standby power
+            self.state = 1
+            # update ema
+            self.iterations += 1
+            if self.iterations < self.sigma:
+                self.average += interval
+                energy += remain*self.device.standby_power
+            elif self.iterations == self.sigma:
+                self.average += interval
+                self.average /= self.sigma
+                energy += remain*self.device.standby_power
+            else:
+                if self.average-(interval-remain) >= self.device.alpha:
+                    energy += self.shutdown(remain)
+                else:
+                    energy += remain*self.device.standby_power
+        self.average *= 1-self.smoothing
+        self.average += interval*self.smoothing
+        return energy, wait
+
+
+# Logistic regression
+class Logreg(Algorithm):
+    # sigma is the number of idle periods to lookback
+    def __init__(self, device: HDD, train: list, sigma: int): 
+        self.sigma = sigma # lookback period
+        self.busy_hist = [] # previous sigma busy intervals
+        self.idle_hist = [] # previous sigma idle intervals
+
+        # train model on training workload
+        series = pd.Series(train) # turn list into time series
+        df = pd.DataFrame({'Value': series})
+
+         # calculate z-score, ser = pandas series, f = 1 or -1 (flip)
+        def calc_z(ser, f):
+            mu = 0
+            o = 0
+            for x in ser:
+                if x*f > 0:
+                    o = x*f
+                    mu += x*f
+            mu /= sigma
+            std = 0
+            for x in ser:
+                if x*f > 0:
+                    std += (x*f-mu)**2
+            std = math.sqrt(std/sigma)
+            return (o - mu)/std
+
+        # (# idle intervals above threshold)/(# idle intervals)
+        df['Count'] = df['Value'].rolling(window=sigma).apply(lambda x: (x <= device.alpha).sum()/sigma).shift()
+            
+        # z-score of busy period length relative to last N busy periods
+        df['Z-Busy'] = df['Value'].rolling(window=sigma*2).apply(calc_z, args=(1,)).shift()
+
+        # z-score of idle period length relative to last N idle periods
+        df['Z-Idle'] = df['Value'].rolling(window=sigma*2).apply(calc_z, args=(-1,)).shift()
+
+        df = df.dropna()
+        df = df[df['Value'] <= 0]
+        df['Target'] = np.where(-df['Value'] >= device.alpha, 1, 0)
+
+        self.model = LogisticRegression()
+        x_train = df.drop(['Value', 'Target'], axis=1)
+        y_train = df['Target']
+        self.model.fit(x_train, y_train)
+
+        Algorithm.__init__(self, device)
+
+    # override
+    def busy(self, interval):
+        self.busy_hist.append(interval)
+        if len(self.busy_hist) > self.sigma:
+            self.busy_hist.pop(0)
+        return Algorithm.busy(self, interval)
+    
+    # override
+    def idle(self, interval):
+        energy, wait, remain = self.clear_backlog(interval) # clear any waiting requests
+        if remain > 0: # backlog should be cleared
+            # turn to standby power
+            self.state = 1
+            idle_energy = self.run_algo(remain)
+            energy += idle_energy
+        self.idle_hist.append(interval)
+        if len(self.idle_hist) > self.sigma:
+            self.idle_hist.pop(0)
+        return energy, wait
+
+    # override
+    def run_algo(self, interval):
+        count = 0
+        if len(self.busy_hist) == self.sigma and len(self.idle_hist) == self.sigma:
+            mu_idle = 0
+            mu_busy = 0
+            std_idle = 0
+            std_busy = 0
+            x_idle = 0
+            x_busy = 0
+            for I in self.idle_hist:
+                mu_idle += I
+                x_idle = I
+                if I >= self.device.alpha:
+                    count+=1
+            count /= self.sigma
+            for I in self.busy_hist:
+                mu_busy += I
+                x_busy = I
+            mu_idle /= self.sigma
+            mu_busy /= self.sigma
+            for I in self.idle_hist:
+                std_idle += (I-mu_idle)**2
+            for I in self.busy_hist:
+                std_busy += (I-mu_busy)**2
+            std_idle = math.sqrt(std_idle/self.sigma)
+            std_busy = math.sqrt(std_busy/self.sigma)
+            x_idle = (x_idle-mu_idle)/std_idle
+            x_busy = (x_busy-mu_busy)/std_busy
+            df_in = pd.DataFrame({'Count': [count], 'Z-Busy': [x_busy], 'Z-Idle': [x_idle]})
+            prediction = self.model.predict(df_in)
+            if prediction > 0.5: # shutdown
+                return self.shutdown(interval)
+        return interval*self.device.standby_power
 
 
 # L-shaped
