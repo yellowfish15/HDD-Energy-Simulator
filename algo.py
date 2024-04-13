@@ -1,6 +1,7 @@
-import pickle
 import HDD
+import random
 
+# Default Algorithm
 class Algorithm:
     def __init__(self, device: HDD):
         self.device = device
@@ -8,6 +9,25 @@ class Algorithm:
         self.state = 0 # 0 = active, 1 = standby, 2 = sleeping
         self.wu_tr = 0 # wake-up time remaining (2->0)
         self.sd_tr = 0 # shut-down time remaining (1->2)
+
+    # call shutdown on an idle interval
+    # assume that we are currently in standby state
+    def shutdown(self, interval):
+        energy = 0
+        # initiate shutdown
+        self.sd_tr = self.device.T_sd
+        if self.sd_tr >= interval: # T_sd covers entire interval
+            energy += interval*self.device.P_sd
+            self.sd_tr -= interval
+            interval = 0
+        else:
+            energy += self.sd_tr*self.device.P_sd
+            interval -= self.sd_tr
+            self.sd_tr = 0
+            self.state = 2
+            energy += interval*self.device.sleeping_power
+            interval = 0
+        return energy
 
     # pass in an idle interval
     def clear_backlog(self, interval):
@@ -116,7 +136,9 @@ class Algorithm:
         return interval*self.device.standby_power
 
 
+# Timeout
 class Timeout(Algorithm):
+    # gamma is the threshold for the current idle period
     def __init__(self, device: HDD, gamma: int):
         self.gamma = gamma
         Algorithm.__init__(self, device)
@@ -126,67 +148,88 @@ class Timeout(Algorithm):
         if interval >= self.gamma:
             energy = self.gamma*self.device.standby_power
             interval -= self.gamma
-            # initiate shutdown
-            self.sd_tr = self.device.T_sd
-            if self.sd_tr >= interval: # T_sd covers entire interval
-                energy += interval*self.device.P_sd
-                self.sd_tr -= interval
-                interval = 0
-            else:
-                energy += self.sd_tr*self.device.P_sd
-                interval -= self.sd_tr
-                self.sd_tr = 0
-                self.state = 2
-                energy += interval*self.device.sleeping_power
-                interval = 0
-            return energy
+            return energy + self.shutdown(interval)
         else:
             return interval*self.device.standby_power
 
 
-def run(A: Algorithm, W: list):
-    total_consumption = 0
-    total_wait_time = 0
-    request_count = 0
-    for i in W:
-        # ignore if interval == 0
-        wait_time = 0
-        if i < 0: # idle
-            energy_consumption, wait_time = A.idle(-i)
-        elif i > 0: # busy 
-            energy_consumption, wait_time = A.busy(i)
-            request_count += i
-        total_consumption += energy_consumption
-        total_wait_time += wait_time
-    print("Statistics:")
-    print("Total Enery Consumption (Joules):", f"{total_consumption:.4f}")
-    print("Average wait time per request (ms/request):", f"{total_wait_time/request_count:.4f}")
+# Exponential moving average
+class EMA(Algorithm):
+    # sigma is the number of idle periods to lookback
+    def __init__(self, device: HDD, sigma: int):
+        self.iterations = 0 # number of idle period iterations elapsed
+        self.sigma = sigma
+        self.smoothing = 2/(1+sigma)
+        self.average = 0
+        Algorithm.__init__(self, device)
+
+    # override
+    def run_algo(self, interval):
+        self.iterations += 1
+        if self.iterations < self.sigma:
+            self.average += interval
+            return interval*self.device.standby_power
+        elif self.iterations == self.sigma:
+            self.average += interval
+            self.average /= self.sigma
+            return interval*self.device.standby_power
+        energy = 0
+        if self.average >= self.device.alpha:
+            energy = self.shutdown(interval)
+        else:
+            energy = interval*self.device.standby_power
+            self.average *= 1-self.smoothing
+            self.average += interval*self.smoothing
+        return energy
 
 
-# de-serialize workload file
-with open("wrkld", "rb") as f:
-    W = pickle.load(f)
+class MarkovChain(Algorithm):
+    def __init__(self, device, chain_len):
+        self.chain_len = chain_len
+        self.prs = {} # probabilities
+        self.history = [] # history
+        Algorithm.__init__(self, device)
+    
+    # override
+    def run_algo(self, interval):
+        energy = interval*self.device.standby_power
+        flag = 1 if interval >= self.device.alpha else 0
+        if len(self.history) == self.chain_len:
+            hash = sum(j<<i for i,j in enumerate(reversed(self.history)))
+            if hash in self.prs:
+                p1 = 0 if 1 not in self.prs[hash] else self.prs[hash][1] # above threshold 
+                p0 = 0 if 0 not in self.prs[hash] else self.prs[hash][0] # below threshold
+                if p1+p0 > 0:
+                    p = p1/(p1+p0)
+                    if random.random() <= p: # we shutdown
+                        energy = self.shutdown(interval)
+                if flag not in self.prs[hash]:
+                    self.prs[hash][flag] = 0
+            else:
+                self.prs[hash] = {}
+                self.prs[hash][flag] = 0 
+            self.prs[hash][flag] += 1
+            self.history.pop(0)
+        # append whether or not the current interval was good to shut down
+        self.history.append(flag)
+        return energy
 
-    print("--- Default Algorithm HDD A ---")
-    A_default = Algorithm(HDD.A)
-    run(A_default, W)
 
-    print("--- Timeout Algorithm HDD A ---")
-    A_timeout = Timeout(HDD.A, 1000)
-    run(A_timeout, W)
+# L-shaped
+class L(Algorithm):
+    # theta is the threshold for how short the previous busy period should be
+    def __init__(self, device: HDD, theta: int):
+        self.theta = theta
+        self.prev = theta+1 # length of previous busy period
+        Algorithm.__init__(self, device)
 
-    print("--- Default Algorithm HDD B ---")
-    B_default = Algorithm(HDD.B)
-    run(B_default, W)
+    # override
+    def busy(self, interval):
+        self.prev = interval
+        return Algorithm.busy(self, interval)
 
-    print("--- Timeout Algorithm HDD B ---")
-    B_timeout = Timeout(HDD.B, 100)
-    run(B_timeout, W)
-
-    print("--- Default Algorithm HDD C ---")
-    C_default = Algorithm(HDD.C)
-    run(C_default, W)
-
-    print("--- Timeout Algorithm HDD C ---")
-    C_timeout = Timeout(HDD.C, 100)
-    run(C_timeout, W)
+    # override
+    def run_algo(self, interval):
+        if self.prev <= self.theta:
+            return self.shutdown(interval)
+        return interval*self.device.standby_power
