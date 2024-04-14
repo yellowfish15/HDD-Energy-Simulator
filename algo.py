@@ -2,7 +2,6 @@ import HDD
 import math
 import numpy as np
 import pandas as pd
-import random
 from sklearn.linear_model import LogisticRegression
 
 # Default Algorithm
@@ -80,11 +79,11 @@ class Algorithm:
         return energy, wait, interval
         
     def idle(self, interval):
-        energy, wait, interval = self.clear_backlog(interval) # clear any waiting requests
-        if interval > 0: # backlog should be cleared
+        energy, wait, remain = self.clear_backlog(interval) # clear any waiting requests
+        if remain > 0: # backlog should be cleared
             # turn to standby power
             self.state = 1
-            idle_energy = self.run_algo(interval)
+            idle_energy = self.run_algo(remain)
             energy += idle_energy
         return energy, wait
 
@@ -94,7 +93,7 @@ class Algorithm:
         energy = 0 # energy consumption in joules
         wait = 0 # cumulative wait time across all requests
         if self.wu_tr == 0 and self.sd_tr == 0:
-            if self.state == 2: # activate shutdown if in sleeping state
+            if self.state == 2: # activate wakeup if in sleeping state
                 self.wu_tr = self.device.T_wu
             elif self.state == 1: # switch to active state
                 self.state = 0
@@ -104,7 +103,7 @@ class Algorithm:
             self.wu_tr -= interval
             self.backlog += interval
             interval = 0
-        elif self.wu_tr > 0 and self.wu_tr < interval: 
+        elif self.wu_tr > 0 and self.wu_tr < interval:
             energy = self.wu_tr*self.device.P_wu
             wait = self.wu_tr*(self.wu_tr)/2 + self.backlog*self.wu_tr
             interval -= self.wu_tr
@@ -269,8 +268,14 @@ class Logreg(Algorithm):
         self.model = LogisticRegression()
         x_train = df.drop(['Value', 'Target'], axis=1)
         y_train = df['Target']
-        self.model.fit(x_train, y_train)
-
+        check = sum(y_train)
+        self.always = -1 # always one prediction
+        if check == 0:
+            self.always = 0
+        elif check == y_train.size:
+            self.always = 1
+        else:
+            self.model.fit(x_train, y_train)
         Algorithm.__init__(self, device)
 
     # override
@@ -296,7 +301,11 @@ class Logreg(Algorithm):
     # override
     def run_algo(self, interval):
         count = 0
-        if len(self.busy_hist) == self.sigma and len(self.idle_hist) == self.sigma:
+        if self.always == 0:
+            return interval*self.device.standby_power
+        elif self.always == 1:
+            return self.shutdown(interval)
+        elif len(self.busy_hist) == self.sigma and len(self.idle_hist) == self.sigma:
             mu_idle = 0
             mu_busy = 0
             std_idle = 0

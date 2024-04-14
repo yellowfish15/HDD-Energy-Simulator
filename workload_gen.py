@@ -72,12 +72,12 @@ def gen_periodic(mu, sigma, k, milliseconds):
         b *= -1
     return intervals
 
-
-norm_wkld = gen_normal(20000, 5000, 36000000) # workload created from normal distributions
-exp_wkld = gen_exp(2000, 5000, 200000, 36000000) # workload created from exponential distribution of idle period lengths
-ls_wkld = gen_long_short(20000, 5000, 36000000) # workload created from long/short normal distributions
-periodic_wkld = gen_periodic(20000, 5000, math.pi, 36000000) # workload created from periodic normal distributions
+# Workloads for HDD A
+norm_wkld = gen_normal(15000, 3000, 36000000) # workload created from normal distributions
+exp_wkld = gen_exp(15000, 1000, 510, 36000000) # workload created from exponential distribution of idle period lengths
+ls_wkld = gen_long_short(15000, 100, 36000000) # workload created from long/short normal distributions
+periodic_wkld = gen_periodic(15000, 100, math.pi, 36000000) # workload created from periodic normal distributions
 
 # serialize workload file
 with open("wrkld", "wb") as f:
-    pickle.dump(periodic_wkld, f)
+    pickle.dump(norm_wkld, f)
