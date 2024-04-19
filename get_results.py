@@ -5,9 +5,7 @@ import workload_gen
 
 # make a bar graph
 def make_bar(algorithms: list, values: list, col: str, title: str, ylabel: str):
-    # plotting
     fig, ax = plt.subplots(figsize=(10, 6))
-    # plot energy efficiency
     ax.bar(algorithms, values, color=col)
     ax.set_xlabel("Algorithm")
     ax.set_ylabel(ylabel)
