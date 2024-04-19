@@ -1,6 +1,8 @@
+import pandas as pd
 import pickle
 import algo
 import HDD
+import workload_gen
 
 def run(A: algo.Algorithm, W: list):
     total_consumption = 0
@@ -16,29 +18,54 @@ def run(A: algo.Algorithm, W: list):
             request_count += i
         total_consumption += energy_consumption
         total_wait_time += wait_time
-    print("Statistics:")
-    print("Total Enery Consumption (Joules):", f"{total_consumption:.4f}")
-    print("Average wait time per request (ms/request):", f"{total_wait_time/request_count:.4f}")
+    return total_consumption/1000, total_wait_time/(1000*request_count)
 
 
-# de-serialize workload file
-with open("wrkld", "rb") as f:
-    W = pickle.load(f)
+# test all algorithms on a workload
+def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
+    try:
+        # de-serialize workload file
+        with open("./workloads/"+drive_name+"/"+workload_name, "rb") as f:
+            W = pickle.load(f)
+            stats = {
+                "Algorithm": ["Default", "Timeout", "Markov Chain", "EMA", "Logistic Regression", "L-Shape"],
+                "Energy": [], # Total Enery Consumption (Kilojoules)
+                "Wait": [] # Average wait time per request (s/request)
+            }
 
-    print("--- Default Algorithm HDD A ---")
-    run(algo.Algorithm(HDD.A), W)
+            e, w = run(algo.Algorithm(hd), W)
+            stats["Energy"].append(e)
+            stats["Wait"].append(w)
 
-    print("--- Timeout Algorithm HDD A ---")
-    run(algo.Timeout(HDD.A, 10), W)
-    
-    print("--- Markov Chain Algorithm HDD A ---")
-    run(algo.MarkovChain(HDD.A, 4), W)
-    
-    print("--- EMA Algorithm HDD A ---")
-    run(algo.EMA(HDD.A, 5), W)
+            e,w = run(algo.Timeout(hd, 0), W)
+            stats["Energy"].append(e)
+            stats["Wait"].append(w)
+            
+            e,w = run(algo.MarkovChain(hd, 4), W)
+            stats["Energy"].append(e)
+            stats["Wait"].append(w)
+            
+            e,w = run(algo.EMA(hd, 5), W)
+            stats["Energy"].append(e)
+            stats["Wait"].append(w)
 
-    print("--- Logistic Regression Algorithm HDD A ---")
-    run(algo.Logreg(HDD.A, W, 10), W)
+            e,w = run(algo.Logreg(hd, W, 10), W)
+            stats["Energy"].append(e)
+            stats["Wait"].append(w)
 
-    print("--- L-Shape Algorithm HDD A ---")
-    run(algo.L(HDD.A, 10000), W) 
+            e,w = run(algo.L(hd, 11000), W)
+            stats["Energy"].append(e)
+            stats["Wait"].append(w)
+            return pd.DataFrame(stats)
+    except:
+        return pd.DataFrame()
+
+
+results = {} # dictionary of pandas dataframes [drive name] -> [workload name] -> data frame
+for drive in HDD.DRIVES:
+    results[drive.name] = {}
+    for workload_name in workload_gen.WORKLOADS:
+        results[drive.name][workload_name] = test_workload(drive.name, drive, workload_name+".pickle")
+
+with open("./results/results.pickle", "wb") as f:
+    pickle.dump(results, f)
