@@ -21,7 +21,7 @@ def run(A: algo.Algorithm, W: list):
     return total_consumption/1000, total_wait_time/(1000*request_count)
 
 
-# test all algorithms on a workload
+# test all algorithms on a workload HDD A
 def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
     try:
         # de-serialize workload file
@@ -37,9 +37,15 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
             stats["Energy"].append(e)
             stats["Wait"].append(w)
 
-            e,w = run(algo.Timeout(hd, 0), W)
+            if drive_name == "HDD_A":
+                e,w = run(algo.Timeout(hd, 0), W)
+            elif drive_name == "HDD_B":
+                e,w = run(algo.Timeout(hd, 0), W)
+            else:
+                e,w = run(algo.Timeout(hd, 0), W)
             stats["Energy"].append(e)
             stats["Wait"].append(w)
+
             
             e,w = run(algo.MarkovChain(hd, 4), W)
             stats["Energy"].append(e)
@@ -53,7 +59,12 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
             stats["Energy"].append(e)
             stats["Wait"].append(w)
 
-            e,w = run(algo.L(hd, 11000), W)
+            if drive_name == "HDD_A":
+                e,w = run(algo.L(hd, 11000), W)
+            elif drive_name == "HDD_B":
+                e,w = run(algo.L(hd, 11000), W)
+            else:
+                e,w = run(algo.L(hd, 11000), W)
             stats["Energy"].append(e)
             stats["Wait"].append(w)
             return pd.DataFrame(stats)
