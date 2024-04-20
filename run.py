@@ -18,7 +18,7 @@ def run(A: algo.Algorithm, W: list):
             request_count += i
         total_consumption += energy_consumption
         total_wait_time += wait_time
-    return total_consumption/1000, total_wait_time/(1000*request_count)
+    return total_consumption/3600, total_wait_time/(1000*request_count)
 
 
 # test all algorithms on a workload HDD A
@@ -28,7 +28,7 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
         with open("./workloads/"+drive_name+"/"+workload_name, "rb") as f:
             W = pickle.load(f)
             stats = {
-                "Energy": [], # Total Enery Consumption (Kilojoules)
+                "Energy": [], # Total Enery Consumption (Watthours)
                 "Wait": [] # Average wait time per request (s/request)
             }
 
