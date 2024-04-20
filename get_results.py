@@ -26,7 +26,7 @@ with open("./results/results.pickle", "rb") as f:
         ax.set_xticks(index + bar_width * (num_algos - 1) / 2)
         ax.set_xticklabels(WORKLOADS)
         lgd = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        fig.savefig("./results/" + drive.name + "/" + "energy.png", bbox_extra_artists=(lgd,), bbox_inches='tight')
+        fig.savefig("./results/" + drive.name + "/" + "energy.pdf", bbox_extra_artists=(lgd,), bbox_inches='tight')
         plt.close(fig)
 
         # get wait time plot
@@ -45,7 +45,7 @@ with open("./results/results.pickle", "rb") as f:
         ax.set_xticks(index + bar_width * (num_algos - 1) / 2)
         ax.set_xticklabels(WORKLOADS)
         lgd = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        fig.savefig("./results/" + drive.name + "/" + "wait.png", bbox_extra_artists=(lgd,), bbox_inches='tight')
+        fig.savefig("./results/" + drive.name + "/" + "wait.pdf", bbox_extra_artists=(lgd,), bbox_inches='tight')
         plt.close(fig)
 
 
