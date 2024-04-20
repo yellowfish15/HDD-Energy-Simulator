@@ -1,28 +1,54 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pickle
+import algo
 import HDD
 import workload_gen
-
-# make a bar graph
-def make_bar(algorithms: list, values: list, col: str, title: str, ylabel: str):
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(algorithms, values, color=col)
-    ax.set_xlabel("Algorithm")
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    ax.set_xticks(range(len(algorithms)))
-    ax.set_xticklabels(algorithms, rotation=45, ha="right")
-    return fig
-
 
 with open("./results/results.pickle", "rb") as f:
     R = pickle.load(f)
     for drive in HDD.DRIVES:
-        for workload_name in workload_gen.WORKLOADS:
-            stats = R[drive.name][workload_name]
-            plot = make_bar(stats["Algorithm"], stats["Energy"], "b", "Total Energy Consumption", "Consumption (Kilojoules)")
-            plot.savefig("./results/" + drive.name + "/" + workload_name + "-energy.pdf")
-            plt.close(plot)
-            plot = make_bar(stats["Algorithm"], stats["Wait"], "r", "Average Wait Time Per Request", "seconds per request")
-            plot.savefig("./results/" + drive.name + "/" + workload_name + "-wait.pdf")
-            plt.close(plot)
+        num_algos = len(algo.ALGOS)
+        num_workloads = len(workload_gen.WORKLOADS)
+
+        # get energy plot
+        fig, ax = plt.subplots()
+        bar_width = 0.15
+        index = np.arange(num_workloads)
+        for i in range(num_algos):
+            values = []
+            for workload_name in workload_gen.WORKLOADS:
+                stats = R[drive.name][workload_name]
+                values.append(stats["Energy"][i])
+            ax.bar(index + i * bar_width, values, bar_width, label=algo.ALGOS[i])
+        ax.set_xlabel("Workloads")
+        ax.set_ylabel("Consumption (Kilojoules)")
+        ax.set_title("Total Energy Consumption " + drive.name)
+        ax.set_xticks(index + bar_width * (num_algos - 1) / 2)
+        ax.set_xticklabels(workload_gen.WORKLOADS)
+        lgd = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        fig.savefig("./results/" + drive.name + "/" + "energy.png", bbox_extra_artists=(lgd,), bbox_inches='tight')
+        plt.close(fig)
+
+        # get wait time plot
+        fig, ax = plt.subplots()
+        bar_width = 0.15
+        index = np.arange(num_workloads)
+        for i in range(num_algos):
+            values = []
+            for workload_name in workload_gen.WORKLOADS:
+                stats = R[drive.name][workload_name]
+                values.append(stats["Wait"][i])
+            ax.bar(index + i * bar_width, values, bar_width, label=algo.ALGOS[i])
+        ax.set_xlabel("Workloads")
+        ax.set_ylabel("Seconds per request")
+        ax.set_title("Average Wait Time Per Request " + drive.name)
+        ax.set_xticks(index + bar_width * (num_algos - 1) / 2)
+        ax.set_xticklabels(workload_gen.WORKLOADS)
+        lgd = ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        fig.savefig("./results/" + drive.name + "/" + "wait.png", bbox_extra_artists=(lgd,), bbox_inches='tight')
+        plt.close(fig)
+
+
+
+
