@@ -14,6 +14,7 @@ class Algorithm:
         self.sd_tr = 0 # shut-down time remaining (1->2)
 
     # call shutdown on an idle interval
+    # uses up entire interval
     def shutdown(self, interval):
         energy = 0
         assert self.state == 1 # assume that we are currently in standby state
@@ -23,60 +24,51 @@ class Algorithm:
         if self.sd_tr >= interval: # T_sd covers entire interval
             energy += interval*self.device.P_sd
             self.sd_tr -= interval
-            interval = 0
+            assert self.sd_tr >= 0
         else:
             energy += self.sd_tr*self.device.P_sd
             interval -= self.sd_tr
             self.sd_tr = 0
-            self.state = 2
+            self.state = 2 # now in sleeping state
             energy += interval*self.device.sleeping_power
-            interval = 0
         return energy
 
     # pass in an idle interval
     def clear_backlog(self, interval):
+        assert interval > 0
         energy = 0 # energy consumption in joules
         wait = 0 # cumulative wait time across all requests
-        if self.backlog == 0 or interval == 0:
-            return energy, wait, interval
-        if self.wu_tr == 0 and self.sd_tr == 0:
-            if self.state == 2: # in shutdown state, so wake up
-                self.wu_tr = self.device.T_wu
-            elif self.state == 1: # switch to active state
-                self.state = 0
-        if self.wu_tr >= interval:
-            energy = self.wu_tr * self.device.P_wu
-            wait = self.backlog*interval
-            self.wu_tr -= interval
-            interval = 0
-        elif self.wu_tr > 0 and self.wu_tr < interval: 
-            energy = self.wu_tr*self.device.P_wu
-            wait = self.backlog*self.wu_tr
-            interval -= self.wu_tr
-            self.wu_tr = 0 # reset the wake up timer
-            self.backlog = 0 # reset the number of backlogged requests
-            self.state = 0 # awake state
-        elif self.sd_tr >= interval:
-            energy = self.sd_tr * self.device.P_sd
-            wait = self.backlog*interval
-            self.sd_tr -= interval
-            self.backlog += interval
-            interval = 0
-        elif self.sd_tr > 0 and self.sd_tr < interval:
-            energy = self.sd_tr*self.device.P_sd
-            wait = self.backlog*self.sd_tr
-            interval -= self.sd_tr
-            self.sd_tr = 0 # reset the shut down timer
-            self.state = 2 # sleeping state
-        elif self.state == 0: # take 1 millisecond to clear all requests
-            energy = self.device.active_power
-            wait = self.backlog
-            interval -= 1
-            self.backlog = 0
-        if self.backlog > 0 and interval > 0:
-            act_energy, act_wait, interval = self.clear_backlog(interval)
-            energy += act_energy
-            wait += act_wait
+        while self.backlog > 0 and interval > 0:
+            if self.wu_tr == 0 and self.sd_tr == 0:
+                if self.state == 2: # in shutdown state, so wake up
+                    self.wu_tr = self.device.T_wu
+                elif self.state == 1: # switch to active state
+                    self.state = 0
+            if self.wu_tr > interval:
+                energy += self.wu_tr * self.device.P_wu
+                wait += self.backlog*interval
+                self.wu_tr -= interval
+                interval = 0
+            elif self.wu_tr > 0 and self.wu_tr <= interval: 
+                energy += self.wu_tr*self.device.P_wu
+                wait += self.backlog*self.wu_tr
+                interval -= self.wu_tr
+                self.wu_tr = 0 # reset the wake up timer
+                self.backlog = 0 # reset the number of backlogged requests
+                self.state = 0 # awake state
+            elif self.sd_tr > interval:
+                energy += self.sd_tr * self.device.P_sd
+                wait += self.backlog*interval
+                self.sd_tr -= interval
+                interval = 0
+            elif self.sd_tr > 0 and self.sd_tr <= interval:
+                energy += self.sd_tr*self.device.P_sd
+                wait += self.backlog*self.sd_tr
+                interval -= self.sd_tr
+                self.sd_tr = 0 # reset the shut down timer
+                self.state = 2 # sleeping state
+            elif self.state == 0: # clearing requests is instant
+                self.backlog = 0
         return energy, wait, interval
         
     def idle(self, interval):
@@ -84,8 +76,7 @@ class Algorithm:
         if remain > 0: # backlog should be cleared
             # turn to standby power
             self.state = 1
-            idle_energy = self.run_algo(remain)
-            energy += idle_energy
+            energy += self.run_algo(remain)
         return energy, wait
 
     def busy(self, interval):
@@ -93,49 +84,48 @@ class Algorithm:
             return 0, 0
         energy = 0 # energy consumption in joules
         wait = 0 # cumulative wait time across all requests
-        if self.wu_tr == 0 and self.sd_tr == 0:
-            if self.state == 2: # activate wakeup if in sleeping state
-                self.wu_tr = self.device.T_wu
-            elif self.state == 1: # switch to active state
-                self.state = 0
-        if self.wu_tr >= interval:
-            energy = self.wu_tr * self.device.P_wu
-            wait = interval*(interval+1)/2 + self.backlog*interval
-            self.wu_tr -= interval
-            self.backlog += interval
-            interval = 0
-        elif self.wu_tr > 0 and self.wu_tr < interval:
-            energy = self.wu_tr*self.device.P_wu
-            wait = self.wu_tr*(self.wu_tr)/2 + self.backlog*self.wu_tr
-            interval -= self.wu_tr
-            self.wu_tr = 0 # reset the wake up timer
-            self.backlog = 0 # reset the number of backlogged requests
-            self.state = 0 # awake state
-        elif self.sd_tr >= interval:
-            energy = self.sd_tr * self.device.P_sd
-            wait = interval*(interval+1)/2 + self.backlog*interval
-            self.sd_tr -= interval
-            self.backlog += interval
-            interval = 0
-        elif self.sd_tr > 0 and self.sd_tr < interval:
-            energy = self.sd_tr*self.device.P_sd
-            wait = self.sd_tr*(self.sd_tr)/2 + self.backlog*self.sd_tr
-            interval -= self.sd_tr
-            self.sd_tr = 0 # reset the shut down timer
-            self.state = 2 # sleeping state
-        elif self.state == 0: # active
-            energy = interval*self.device.active_power
-            wait = self.backlog
-            interval = 0
-            self.backlog = 0
-        if interval > 0:
-            act_energy, act_wait = self.busy(interval)
-            energy += act_energy
-            wait += act_wait
+        while interval > 0:
+            if self.wu_tr == 0 and self.sd_tr == 0:
+                if self.state == 2: # activate wakeup if in sleeping state
+                    self.wu_tr = self.device.T_wu
+                elif self.state == 1: # switch to active state
+                    self.state = 0
+            if self.wu_tr > interval:
+                energy += self.wu_tr * self.device.P_wu
+                wait += interval*(interval+1)/2 + self.backlog*interval
+                self.wu_tr -= interval
+                self.backlog += interval
+                interval = 0
+            elif self.wu_tr > 0 and self.wu_tr <= interval:
+                energy += self.wu_tr*self.device.P_wu
+                wait += self.wu_tr*(self.wu_tr)/2 + self.backlog*self.wu_tr
+                interval -= self.wu_tr
+                self.wu_tr = 0 # reset the wake up timer
+                self.backlog = 0 # reset the number of backlogged requests
+                self.state = 0 # active state
+            elif self.sd_tr > interval:
+                energy += self.sd_tr * self.device.P_sd
+                wait += interval*(interval+1)/2 + self.backlog*interval
+                self.sd_tr -= interval
+                self.backlog += interval
+                interval = 0
+            elif self.sd_tr > 0 and self.sd_tr <= interval:
+                energy += self.sd_tr*self.device.P_sd
+                wait += self.sd_tr*(self.sd_tr)/2 + self.backlog*self.sd_tr
+                interval -= self.sd_tr
+                self.sd_tr = 0 # reset the shut down timer
+                self.state = 2 # sleeping state
+            elif self.state == 0: # active
+                energy += interval*self.device.active_power
+                wait += self.backlog
+                interval = 0
+                self.backlog = 0
         return energy, wait
     
     # abstract method to be implemented by the algorithms
     def run_algo(self, interval):
+        assert self.state == 1
+        assert self.backlog == 0
         # default behavior (no algorithm)
         return interval*self.device.standby_power
 
@@ -149,6 +139,8 @@ class Timeout(Algorithm):
 
     # override
     def run_algo(self, interval):
+        assert self.state == 1
+        assert self.backlog == 0
         if interval >= self.gamma:
             energy = self.gamma*self.device.standby_power
             interval -= self.gamma
@@ -167,6 +159,8 @@ class MarkovChain(Algorithm):
     
     # override
     def run_algo(self, interval):
+        assert self.state == 1
+        assert self.backlog == 0
         energy = interval*self.device.standby_power
         flag = 1 if interval >= self.device.alpha else 0
         if len(self.history) == self.chain_len:
@@ -206,22 +200,23 @@ class EMA(Algorithm):
         if remain > 0: # backlog should be cleared
             # turn to standby power
             self.state = 1
-            # update ema
-            self.iterations += 1
-            if self.iterations < self.sigma:
-                self.average += interval
-                energy += remain*self.device.standby_power
-            elif self.iterations == self.sigma:
-                self.average += interval
-                self.average /= self.sigma
-                energy += remain*self.device.standby_power
-            else:
+            if self.iterations > self.sigma:
                 if self.average-(interval-remain) >= self.device.alpha:
                     energy += self.shutdown(remain)
                 else:
                     energy += remain*self.device.standby_power
-        self.average *= 1-self.smoothing
-        self.average += interval*self.smoothing
+            else:
+                energy += remain*self.device.standby_power
+        # update ema
+        if self.iterations < self.sigma:
+            self.average += interval
+        elif self.iterations == self.sigma:
+            self.average += interval
+            self.average /= self.sigma
+        else:
+            self.average *= 1-self.smoothing
+            self.average += interval*self.smoothing
+        self.iterations += 1
         return energy, wait
 
 
@@ -292,8 +287,7 @@ class Logreg(Algorithm):
         if remain > 0: # backlog should be cleared
             # turn to standby power
             self.state = 1
-            idle_energy = self.run_algo(remain)
-            energy += idle_energy
+            energy += self.run_algo(remain)
         self.idle_hist.append(interval)
         if len(self.idle_hist) > self.sigma:
             self.idle_hist.pop(0)
@@ -301,6 +295,8 @@ class Logreg(Algorithm):
 
     # override
     def run_algo(self, interval):
+        assert self.state == 1
+        assert self.backlog == 0
         count = 0
         if self.always == 0:
             return interval*self.device.standby_power
@@ -354,8 +350,8 @@ class L(Algorithm):
 
     # override
     def run_algo(self, interval):
+        assert self.state == 1
+        assert self.backlog == 0
         if self.prev <= self.theta:
             return self.shutdown(interval)
         return interval*self.device.standby_power
-
-ALGOS = ["Default", "Timeout", "Markov Chain", "EMA", "Logistic Regression", "L-Shape"]

@@ -28,6 +28,7 @@ class HDD:
     #self.alpha = (max(0, T_sd*(P_sd - standby_power)/(standby_power-sleeping_power)) + T_sd)*1000
     self.alpha = (max(0, (T_sd*(P_sd - standby_power)+T_wu*(P_wu - active_power))/(standby_power-sleeping_power)) + T_sd)*1000
 
+
 # the three HDDs we will simulate
 A = HDD("HDD_A", 6.4, 0.75, 3.48, 3.48, 0.51, 6.97, 2.12, 7.53)
 B = HDD("HDD_B", 500, 0.8, 9.3, 13, 10, 15, 9.3, 24)

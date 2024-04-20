@@ -1,8 +1,8 @@
 import pandas as pd
 import pickle
 import algo
+from constants import WORKLOADS
 import HDD
-import workload_gen
 
 def run(A: algo.Algorithm, W: list):
     total_consumption = 0
@@ -50,8 +50,13 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
             e,w = run(algo.MarkovChain(hd, 4), W)
             stats["Energy"].append(e)
             stats["Wait"].append(w)
-            
-            e,w = run(algo.EMA(hd, 5), W)
+
+            if drive_name == "HDD_A":
+                e,w = run(algo.EMA(hd, 5), W)
+            elif drive_name == "HDD_B":
+                e,w = run(algo.EMA(hd, 5), W)
+            else:
+                e,w = run(algo.EMA(hd, 2), W)
             stats["Energy"].append(e)
             stats["Wait"].append(w)
 
@@ -64,7 +69,7 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
             elif drive_name == "HDD_B":
                 e,w = run(algo.L(hd, 11000), W)
             else:
-                e,w = run(algo.L(hd, 11000), W)
+                e,w = run(algo.L(hd, 130000), W)
             stats["Energy"].append(e)
             stats["Wait"].append(w)
             return pd.DataFrame(stats)
@@ -75,7 +80,7 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
 results = {} # dictionary of pandas dataframes [drive name] -> [workload name] -> data frame
 for drive in HDD.DRIVES:
     results[drive.name] = {}
-    for workload_name in workload_gen.WORKLOADS:
+    for workload_name in WORKLOADS:
         results[drive.name][workload_name] = test_workload(drive.name, drive, workload_name+".pickle")
 
 with open("./results/results.pickle", "wb") as f:
