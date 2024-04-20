@@ -21,7 +21,7 @@ with open("./results/results.pickle", "rb") as f:
                 values.append(stats["Energy"][i])
             ax.bar(index + i * bar_width, values, bar_width, label=ALGOS[i])
         ax.set_xlabel("Workload Distribution")
-        ax.set_ylabel("Energy Consumption (Watthours)")
+        ax.set_ylabel("Energy Consumption (Watt-hours)")
         ax.set_title("Total Energy Consumption " + drive.name)
         ax.set_xticks(index + bar_width * (num_algos - 1) / 2)
         ax.set_xticklabels(WORKLOADS)
