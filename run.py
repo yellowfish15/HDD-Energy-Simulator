@@ -28,11 +28,11 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
         with open("./workloads/"+drive_name+"/"+workload_name, "rb") as f:
             W = pickle.load(f)
             stats = {
-                "Algorithm": ["Default", "Timeout", "Markov Chain", "EMA", "Logistic Regression", "L-Shape"],
                 "Energy": [], # Total Enery Consumption (Kilojoules)
                 "Wait": [] # Average wait time per request (s/request)
             }
 
+            # following ordering in algo.ALGOS
             e, w = run(algo.Algorithm(hd), W)
             stats["Energy"].append(e)
             stats["Wait"].append(w)

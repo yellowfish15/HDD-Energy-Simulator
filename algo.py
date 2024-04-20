@@ -356,3 +356,5 @@ class L(Algorithm):
         if self.prev <= self.theta:
             return self.shutdown(interval)
         return interval*self.device.standby_power
+
+ALGOS = ["Default", "Timeout", "Markov Chain", "EMA", "Logistic Regression", "L-Shape"]
