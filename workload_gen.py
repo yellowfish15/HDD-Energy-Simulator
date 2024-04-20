@@ -84,16 +84,16 @@ Serialize workload files
 # --- Workloads for HDD A ---
 # workload created from normal distributions
 with open("./workloads/HDD_A/normal.pickle", "wb") as f:
-    pickle.dump(gen_normal(20000, 5000, 20000, 5000, 36000000), f)
+    pickle.dump(gen_normal(10000, 1000, 15000, 5000, 36000000), f)
 # workload created from exponential distribution of idle period lengths
 with open("./workloads/HDD_A/exponential.pickle", "wb") as f:
-    pickle.dump(gen_exp(20000, 2000, 15000, 36000000), f)
+    pickle.dump(gen_exp(9000, 1000, 17000, 36000000), f)
 # workload created from long/short normal distributions
 with open("./workloads/HDD_A/long_short.pickle", "wb") as f:
-    pickle.dump(gen_long_short(15000, 1000, 36000000), f) 
+    pickle.dump(gen_long_short(11000, 3000, 36000000), f)
 # workload created from periodic normal distributions
 with open("./workloads/HDD_A/periodic.pickle", "wb") as f:
-    pickle.dump(gen_periodic(15000, 1000, 15000, math.pi, 36000000), f)
+    pickle.dump(gen_periodic(11000, 1000, 20000, math.pi, 36000000), f)
 
 
 # --- Workloads for HDD B ---
