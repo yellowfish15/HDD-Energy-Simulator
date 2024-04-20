@@ -14,9 +14,10 @@ class Algorithm:
         self.sd_tr = 0 # shut-down time remaining (1->2)
 
     # call shutdown on an idle interval
-    # assume that we are currently in standby state
     def shutdown(self, interval):
         energy = 0
+        assert self.state == 1 # assume that we are currently in standby state
+        assert self.sd_tr == 0
         # initiate shutdown
         self.sd_tr = self.device.T_sd
         if self.sd_tr >= interval: # T_sd covers entire interval
