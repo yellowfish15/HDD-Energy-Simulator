@@ -54,7 +54,7 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
             if drive_name == "HDD_A":
                 e,w = run(algo.EMA(hd, 5), W)
             elif drive_name == "HDD_B":
-                e,w = run(algo.EMA(hd, 5), W)
+                e,w = run(algo.EMA(hd, 3), W)
             else:
                 e,w = run(algo.EMA(hd, 2), W)
             stats["Energy"].append(e)
@@ -67,7 +67,7 @@ def test_workload(drive_name: str, hd: HDD, workload_name: str, ):
             if drive_name == "HDD_A":
                 e,w = run(algo.L(hd, 11000), W)
             elif drive_name == "HDD_B":
-                e,w = run(algo.L(hd, 11000), W)
+                e,w = run(algo.L(hd, 30000), W)
             else:
                 e,w = run(algo.L(hd, 130000), W)
             stats["Energy"].append(e)

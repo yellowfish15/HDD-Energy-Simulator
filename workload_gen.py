@@ -99,16 +99,16 @@ with open("./workloads/HDD_A/periodic.pickle", "wb") as f:
 # --- Workloads for HDD B ---
 # workload created from normal distributions
 with open("./workloads/HDD_B/normal.pickle", "wb") as f:
-    pickle.dump(gen_normal(20000, 1000, 35000, 1500, 36000000), f)
+    pickle.dump(gen_normal(20000, 1000, 40000, 10000, 36000000), f)
 # workload created from exponential distribution of idle period lengths
 with open("./workloads/HDD_B/exponential.pickle", "wb") as f:
-    pickle.dump(gen_exp(20000, 1000, 35000, 36000000), f)
+    pickle.dump(gen_exp(20000, 1000, 60000, 36000000), f)
 # workload created from long/short normal distributions
 with open("./workloads/HDD_B/long_short.pickle", "wb") as f:
-    pickle.dump(gen_long_short(25000, 2000, 36000000), f) 
+    pickle.dump(gen_long_short(30000, 10000, 36000000), f)
 # workload created from periodic normal distributions
 with open("./workloads/HDD_B/periodic.pickle", "wb") as f:
-    pickle.dump(gen_periodic(25000, 2000, 60000, math.pi, 36000000), f)
+    pickle.dump(gen_periodic(30000, 2000, 70000, math.pi, 36000000), f)
 
 
 # --- Workloads for HDD C ---
