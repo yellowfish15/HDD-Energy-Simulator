@@ -2,6 +2,8 @@
 # HDD-Energy-Simulator
 Simulate various power-down algorithms on several workload distributions using statistics collected from commercial Hard-Disk Drives.
 
+Our [paper](./paper.pdf) containing motivation, methodology, and results of this study.
+
 ## Requirements
 - Python 3.x
 - pandas
@@ -42,3 +44,11 @@ After running algorithms on the workloads and serializing the results, you can g
 
 Run the Python script to generate the graphs with Mathplotlib: `python get_results.py` 
 The generated graphs will be saved as PDF files in the `results` directory under each of the three tested HDDs.
+
+## Additional Files
+- ```algo.py``` contains the implementation of the five algorithms discussed in our study, plus the default "no" algorithm.
+- ```HDD.py``` contains the implementation of the three sample HDDs we chose to simulate in our study.
+- ```constants.py``` simply contain some miscellaneous constants used across the files to prevent re-running workload generations.
+
+## Results
+The visual results of our study used in our paper are contained in the `results` directory, sorted by the Hard Drive the result was collected on. Running ```get_results.py``` will re-generate these graphs on the workloads found in the `workloads` directory.
